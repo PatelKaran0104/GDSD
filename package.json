@@ -1,13 +1,20 @@
 {
-  "name": "swoplet-app",
+  "name": "swoplet-fullstack",
   "version": "1.0.0",
-  "scripts": {
-    "build": "cd Backend && npm install && cd ../UI && npm install && npm run build",
-    "start": "cd Backend && npm start"
-  },
+  "description": "Full-stack React + Express + Socket.io application",
   "engines": {
-    "node": "20.x"
+    "node": "20.x",
+    "npm": "10.x"
+  },
+  "scripts": {
+    "install-all": "npm install && cd Backend && npm install && cd ../UI && npm install",
+    "build": "cd UI && npm install && npm run build",
+    "start": "cd Backend && npm start",
+    "dev": "concurrently \"cd Backend && npm run dev\" \"cd UI && npm run dev\"",
+    "postinstall": "cd Backend && npm install && cd ../UI && npm install"
   },
   "dependencies": {},
-  "description": "Swoplet marketplace application - Full stack deployment"
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  }
 }
