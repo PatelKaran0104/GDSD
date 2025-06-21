@@ -87,3 +87,43 @@ exports.getChatMessages = async (req, res) => {
   }
 };
 
+
+exports.sendMessage = async (req, res) => {
+  try {
+    const { sender_id, receiver_id, product_id, content } = req.body;
+
+    // Find or create chat
+    let chatRecord = await chat.findOne({
+      where: {
+        product_id,
+        [Op.or]: [
+          { product_owner_id: sender_id, other_person_id: receiver_id },
+          { product_owner_id: receiver_id, other_person_id: sender_id }
+        ]
+      }
+    });
+
+    if (!chatRecord) {
+      // Create new chat
+      chatRecord = await chat.create({
+        product_id,
+        product_owner_id: sender_id,
+        other_person_id: receiver_id
+      });
+    }
+
+    // Create message
+    const newMessage = await message.create({
+      chat_id: chatRecord.chat_id,
+      sender_id,
+      receiver_id,
+      content,
+      message_type: 'text'
+    });
+
+    return res.success('Message sent successfully', newMessage, 201);
+  } catch (error) {
+    return res.error(error.message || 'Failed to send message', 500);
+  }
+};
+
