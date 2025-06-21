@@ -45,7 +45,6 @@ export const ContactProvider = ({ children }) => {
   const [searchTerm, setSearchTerm] = useState('');  const [socket, setSocket] = useState(null);
   const [newMessage, setNewMessage] = useState('');
   const [pendingActiveChatInfo, setPendingActiveChatInfo] = useState(null);
-  const [usePolling, setUsePolling] = useState(false);
 
   // Check for pending chat activation on component mount
   useEffect(() => {
@@ -67,20 +66,19 @@ export const ContactProvider = ({ children }) => {
 
   const messagesUrl = activeChat ? `${BASE_URL}messages?chat_id=${activeChat.chat_id}` : null;
   const { data: rawChats, loading: loadingChats, error: errorChats, makeRequest: fetchChats } = useApiRequest(`${BASE_URL}chats?user_id=${currentUserId}`);
-  const { data: rawMessages, loading: loadingMessages, error: errorMessages, makeRequest: fetchMessages } = useApiRequest(messagesUrl);  // Connect WebSocket with polling fallback
+  const { data: rawMessages, loading: loadingMessages, error: errorMessages, makeRequest: fetchMessages } = useApiRequest(messagesUrl);  // Connect WebSocket
   useEffect(() => {
     if (!currentUserId) return;
 
     const newSocket = io(SOCKET_URL, {
       transports: ['websocket'],
-      reconnectionAttempts: 2,
-      timeout: 5000
+      reconnectionAttempts: 5,
+      timeout: 20000
     });
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
       console.log('✅ Connected to socket:', newSocket.id);
-      setUsePolling(false);
       newSocket.emit('join', { user_id: currentUserId });
     });
 
@@ -88,10 +86,6 @@ export const ContactProvider = ({ children }) => {
       console.log('❌ Disconnected from socket');
     });
 
-    newSocket.on('connect_error', () => {
-      console.log('❌ Socket connection failed, switching to polling');
-      setUsePolling(true);
-    });
     newSocket.on('receive_message', (msg) => {
       if (msg.chat_id === activeChat?.chat_id) {
         const transformedMessage = transformMessage(msg, currentUserId);
@@ -117,62 +111,47 @@ export const ContactProvider = ({ children }) => {
         fetchChats().then(({ data }) => {
           const chats = normalize(data);
           const transformedContacts = chats.map(chat => transformChatToContact(chat, currentUserId));
-          setContacts(transformedContacts);              // Check if we should auto-select this new chat
-              const activeChatInfo = pendingActiveChatInfo || (() => {
-                const stored = localStorage.getItem('activeChatInfo');
-                return stored ? JSON.parse(stored) : null;
-              })();
+          setContacts(transformedContacts);
 
-              if (activeChatInfo) {
-                try {
-                  const { sellerId, productId } = activeChatInfo;
-                  
-                  // Find the chat that matches this seller and product
-                  const targetChat = chats.find(chat => {
-                    const otherUserId = chat.owner.id === currentUserId ? chat.otherPerson.id : chat.owner.id;
-                    return otherUserId === sellerId && chat.product?.id === productId;
-                  });
+          // Check if we should auto-select this new chat
+          const activeChatInfo = pendingActiveChatInfo || (() => {
+            const stored = localStorage.getItem('activeChatInfo');
+            return stored ? JSON.parse(stored) : null;
+          })();
 
-                  if (targetChat && targetChat.chat_id === msg.chat_id) {
-                    const targetContactId = targetChat.chat_id.toString();
-                    setActiveContactId(targetContactId);
-                    // Clear the stored info and pending state since we found and activated the chat
-                    localStorage.removeItem('activeChatInfo');
-                    setPendingActiveChatInfo(null);
-                  }
-                } catch (error) {
-                  console.error('Error parsing active chat info:', error);
-                  localStorage.removeItem('activeChatInfo');
-                  setPendingActiveChatInfo(null);
-                }
+          if (activeChatInfo) {
+            try {
+              const { sellerId, productId } = activeChatInfo;
+              
+              // Find the chat that matches this seller and product
+              const targetChat = chats.find(chat => {
+                const otherUserId = chat.owner.id === currentUserId ? chat.otherPerson.id : chat.owner.id;
+                return otherUserId === sellerId && chat.product?.id === productId;
+              });
+
+              if (targetChat && targetChat.chat_id === msg.chat_id) {
+                const targetContactId = targetChat.chat_id.toString();
+                setActiveContactId(targetContactId);
+                // Clear the stored info and pending state since we found and activated the chat
+                localStorage.removeItem('activeChatInfo');
+                setPendingActiveChatInfo(null);
               }
+            } catch (error) {
+              console.error('Error parsing active chat info:', error);
+              localStorage.removeItem('activeChatInfo');
+              setPendingActiveChatInfo(null);
+            }
+          }
         }).catch(error => {
           console.error('Error refreshing chats:', error);
         });
       }
-    });    return () => {
+    });
+
+    return () => {
       newSocket.disconnect();
     };
-  }, [currentUserId, activeChat?.chat_id, activeContactId]);
-
-  // Polling fallback for messages
-  useEffect(() => {
-    if (!usePolling || !activeChat) return;
-
-    const pollMessages = () => {
-      fetchMessages().then(({ data }) => {
-        const msgs = normalize(data);
-        const transformedMessages = msgs.map(msg => transformMessage(msg, currentUserId));
-        setMessages(prev => ({
-          ...prev,
-          [activeContactId]: transformedMessages
-        }));
-      }).catch(() => {});
-    };
-
-    const interval = setInterval(pollMessages, 3000);
-    return () => clearInterval(interval);
-  }, [usePolling, activeChat, fetchMessages, activeContactId, currentUserId]);// Fetch chats
+  }, [currentUserId, activeChat?.chat_id, activeContactId]);// Fetch chats
   useEffect(() => {
     if (!currentUserId) return;
 
@@ -236,39 +215,18 @@ export const ContactProvider = ({ children }) => {
     contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     contact.lastMessage?.toLowerCase().includes(searchTerm.toLowerCase())
   );  const sendMessage = useCallback((content) => {
-    console.log('sendMessage called with:', content);
-    console.log('activeChat:', activeChat);
-    console.log('socket:', socket);
+    if (!activeChat || !content.trim() || !socket) return;
 
-    if (!activeChat || !content.trim()) return;
+    const receiverId = activeChat.owner.id === currentUserId ? activeChat.otherPerson.id : activeChat.owner.id;
+    
+    const messageData = {
+      sender_id: currentUserId,
+      receiver_id: receiverId,
+      product_id: activeChat.product?.id,
+      content: content.trim(),
+    };
 
-    if (usePolling || !socket) {
-      // Fallback to HTTP POST
-      const receiverId = activeChat.owner.id === currentUserId ? activeChat.otherPerson.id : activeChat.owner.id;
-      
-      fetch(`${BASE_URL}messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sender_id: currentUserId,
-          receiver_id: receiverId,
-          product_id: activeChat.product?.id,
-          content: content.trim(),
-        }),
-      }).catch(() => {});
-    } else {
-      // Use socket
-      const receiverId = activeChat.owner.id === currentUserId ? activeChat.otherPerson.id : activeChat.owner.id;
-      
-      const messageData = {
-        sender_id: currentUserId,
-        receiver_id: receiverId,
-        product_id: activeChat.product?.id,
-        content: content.trim(),
-      };
-
-      socket.emit('send_message', messageData);
-    }
+    socket.emit('send_message', messageData);
 
     // Optimistically add message to UI
     const optimisticMessage = {
@@ -296,7 +254,7 @@ export const ContactProvider = ({ children }) => {
           : contact
       )
     );
-  }, [activeChat, currentUserId, socket, activeContactId, usePolling]);
+  }, [activeChat, currentUserId, socket, activeContactId]);
 
   return (
     <ContactContext.Provider

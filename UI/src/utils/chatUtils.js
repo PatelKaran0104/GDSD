@@ -46,32 +46,13 @@ export const initiateChatWithSeller = async (currentUserId, sellerId, productId,
     return { chatExists: true }
   }
 
-  // Try socket first, then fallback to HTTP
+  // Use WebSocket to send the initial message
   return new Promise((resolve) => {
     const socket = io(SOCKET_URL, {
       transports: ['websocket'],
-      reconnectionAttempts: 1,
-      timeout: 3000
+      reconnectionAttempts: 5,
+      timeout: 20000
     })
-
-    const sendViaHttp = async () => {
-      try {
-        await fetch(`${BASE_URL}messages`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sender_id: currentUserId,
-            receiver_id: sellerId,
-            product_id: productId,
-            content: initialMessage,
-          }),
-        })
-        resolve({ chatExists: false })
-      } catch (error) {
-        console.error('HTTP fallback failed:', error)
-        resolve({ chatExists: false })
-      }
-    }
 
     socket.on('connect', () => {
       console.log('✅ Connected to socket for chat initiation:', socket.id)
@@ -92,18 +73,10 @@ export const initiateChatWithSeller = async (currentUserId, sellerId, productId,
       }, 1000)
     })
 
-    socket.on('connect_error', () => {
-      console.log('Socket failed, using HTTP fallback')
+    socket.on('connect_error', (error) => {
+      console.error('Socket connection failed:', error)
       socket.disconnect()
-      sendViaHttp()
+      resolve({ chatExists: false })
     })
-
-    // Fallback timeout
-    setTimeout(() => {
-      if (!socket.connected) {
-        socket.disconnect()
-        sendViaHttp()
-      }
-    }, 3000)
   })
 }
