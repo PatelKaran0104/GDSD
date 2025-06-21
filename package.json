@@ -1,0 +1,14 @@
+{
+  "name": "swoplet-app",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "cd UI && npm install && npm run build",
+    "start": "cd Backend && npm start",
+    "install-backend": "cd Backend && npm install"
+  },
+  "engines": {
+    "node": "18.x"
+  },
+  "dependencies": {},
+  "description": "Swoplet marketplace application - Full stack deployment"
+}
