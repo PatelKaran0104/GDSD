@@ -2,9 +2,8 @@
   "name": "swoplet-app",
   "version": "1.0.0",
   "scripts": {
-    "build": "cd UI && npm install && npm run build",
-    "start": "cd Backend && npm start",
-    "install-backend": "cd Backend && npm install"
+    "build": "cd Backend && npm install && cd ../UI && npm install && npm run build",
+    "start": "cd Backend && npm start"
   },
   "engines": {
     "node": "18.x"
