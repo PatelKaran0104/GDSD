@@ -46,13 +46,44 @@ export const initiateChatWithSeller = async (currentUserId, sellerId, productId,
     return { chatExists: true }
   }
 
-  // Use WebSocket to send the initial message
+  // Try WebSocket first, then fallback to HTTP for chat initiation
   return new Promise((resolve) => {
     const socket = io(SOCKET_URL, {
       transports: ['websocket'],
-      reconnectionAttempts: 5,
-      timeout: 20000
+      reconnectionAttempts: 2,
+      timeout: 5000
     })
+
+    let resolved = false
+
+    const sendViaHttp = async () => {
+      if (resolved) return
+      resolved = true
+      
+      try {
+        const response = await fetch(`${BASE_URL}messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sender_id: currentUserId,
+            receiver_id: sellerId,
+            product_id: productId,
+            content: initialMessage,
+          }),
+        })
+        
+        if (response.ok) {
+          console.log('✅ Message sent via HTTP')
+          resolve({ chatExists: false })
+        } else {
+          console.error('HTTP message send failed')
+          resolve({ chatExists: false })
+        }
+      } catch (error) {
+        console.error('HTTP fallback failed:', error)
+        resolve({ chatExists: false })
+      }
+    }
 
     socket.on('connect', () => {
       console.log('✅ Connected to socket for chat initiation:', socket.id)
@@ -68,15 +99,27 @@ export const initiateChatWithSeller = async (currentUserId, sellerId, productId,
       socket.emit('send_message', messageData)
       
       setTimeout(() => {
-        socket.disconnect()
-        resolve({ chatExists: false })
-      }, 1000)
+        if (!resolved) {
+          resolved = true
+          socket.disconnect()
+          resolve({ chatExists: false })
+        }
+      }, 2000)
     })
 
     socket.on('connect_error', (error) => {
-      console.error('Socket connection failed:', error)
+      console.log('❌ Socket connection failed, using HTTP fallback')
       socket.disconnect()
-      resolve({ chatExists: false })
+      sendViaHttp()
     })
+
+    // Fallback timeout - if socket doesn't connect in 5 seconds, use HTTP
+    setTimeout(() => {
+      if (!resolved && !socket.connected) {
+        console.log('⏰ Socket timeout, using HTTP fallback')
+        socket.disconnect()
+        sendViaHttp()
+      }
+    }, 5000)
   })
 }
