@@ -42,7 +42,7 @@ export const ContactProvider = ({ children }) => {
   const [contacts, setContacts] = useState([]);
   const [messages, setMessages] = useState({});
   const [activeContactId, setActiveContactId] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');  const [socket, setSocket] = useState(null);
+  const [searchTerm, setSearchTerm] = useState(''); const [socket, setSocket] = useState(null);
   const [newMessage, setNewMessage] = useState('');
   const [pendingActiveChatInfo, setPendingActiveChatInfo] = useState(null);
 
@@ -84,10 +84,14 @@ export const ContactProvider = ({ children }) => {
 
     newSocket.on('disconnect', () => {
       console.log('❌ Disconnected from socket');
-    });
+    }); newSocket.on('receive_message', (msg) => {
+      console.log('Received message:', msg);
 
-    newSocket.on('receive_message', (msg) => {
+      // Find if we have this chat in our current contacts
+      const existingContact = contacts.find(c => c._originalChat?.chat_id === msg.chat_id);
+
       if (msg.chat_id === activeChat?.chat_id) {
+        // Message for currently active chat
         const transformedMessage = transformMessage(msg, currentUserId);
         setMessages((prev) => ({
           ...prev,
@@ -106,8 +110,22 @@ export const ContactProvider = ({ children }) => {
               : contact
           )
         );
+      } else if (existingContact) {
+        // Message for an existing chat that's not currently active
+        // Update the last message for that contact
+        setContacts(prev =>
+          prev.map(contact =>
+            contact.id === existingContact.id
+              ? {
+                ...contact,
+                lastMessage: msg.content,
+                lastMessageTime: new Date(msg.created_at || Date.now())
+              }
+              : contact
+          )
+        );
       } else {
-        // This might be a new chat - refresh the chats list
+        // This is a new chat - refresh the chats list to include it
         fetchChats().then(({ data }) => {
           const chats = normalize(data);
           const transformedContacts = chats.map(chat => transformChatToContact(chat, currentUserId));
@@ -122,7 +140,7 @@ export const ContactProvider = ({ children }) => {
           if (activeChatInfo) {
             try {
               const { sellerId, productId } = activeChatInfo;
-              
+
               // Find the chat that matches this seller and product
               const targetChat = chats.find(chat => {
                 const otherUserId = chat.owner.id === currentUserId ? chat.otherPerson.id : chat.owner.id;
@@ -146,12 +164,10 @@ export const ContactProvider = ({ children }) => {
           console.error('Error refreshing chats:', error);
         });
       }
-    });
-
-    return () => {
+    }); return () => {
       newSocket.disconnect();
     };
-  }, [currentUserId, activeChat?.chat_id, activeContactId]);// Fetch chats
+  }, [currentUserId, activeChat?.chat_id, activeContactId, contacts]);// Fetch chats
   useEffect(() => {
     if (!currentUserId) return;
 
@@ -169,7 +185,7 @@ export const ContactProvider = ({ children }) => {
       if (activeChatInfo) {
         try {
           const { sellerId, productId } = activeChatInfo;
-          
+
           // Find the chat that matches this seller and product
           const targetChat = chats.find(chat => {
             const otherUserId = chat.owner.id === currentUserId ? chat.otherPerson.id : chat.owner.id;
@@ -179,7 +195,7 @@ export const ContactProvider = ({ children }) => {
           if (targetChat) {
             const targetContactId = targetChat.chat_id.toString();
             setActiveContactId(targetContactId);
-            
+
             // Clear the stored info and pending state
             localStorage.removeItem('activeChatInfo');
             setPendingActiveChatInfo(null);
@@ -214,11 +230,11 @@ export const ContactProvider = ({ children }) => {
   const filteredContacts = contacts.filter(contact =>
     contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     contact.lastMessage?.toLowerCase().includes(searchTerm.toLowerCase())
-  );  const sendMessage = useCallback((content) => {
+  ); const sendMessage = useCallback((content) => {
     if (!activeChat || !content.trim() || !socket) return;
 
     const receiverId = activeChat.owner.id === currentUserId ? activeChat.otherPerson.id : activeChat.owner.id;
-    
+
     const messageData = {
       sender_id: currentUserId,
       receiver_id: receiverId,
