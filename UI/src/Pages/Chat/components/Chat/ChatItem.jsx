@@ -1,6 +1,7 @@
 
 const AvatarStack = ({ productUrl, productAlt, userUrl, userName }) => {
     const initial = userName?.charAt(0).toUpperCase() ?? '?'
+    const defaultUserAvatar = "https://www.shareicon.net/data/512x512/2016/05/24/770117_people_512x512.png";
 
     return (
         <div className="relative w-12 h-12 flex-shrink-0">
@@ -12,17 +13,11 @@ const AvatarStack = ({ productUrl, productAlt, userUrl, userName }) => {
             />
 
             {/* User or initial */}
-            {userUrl ? (
-                <img
-                    src={userUrl}
-                    alt={userName}
-                    className="absolute right-0 top-0 w-8 h-8 rounded-full object-cover border-2 border-white z-20"
-                />
-            ) : (
-                <div className="absolute right-0 top-0 w-8 h-8 rounded-full bg-gray-500 text-white font-semibold flex items-center justify-center z-20">
-                    {initial}
-                </div>
-            )}
+            <img
+                src={userUrl || defaultUserAvatar}
+                alt={userName}
+                className="absolute right-0 top-0 w-8 h-8 rounded-full object-cover border-2 border-white z-20"
+            />
         </div>
     )
 }

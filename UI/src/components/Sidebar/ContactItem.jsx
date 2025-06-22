@@ -1,8 +1,17 @@
 import { formatDistanceToNow } from '../../../utils/dateUtils';
+import { useNavigate } from 'react-router-dom';
 
 const ContactItem = ({ contact, isActive, onClick }) => {
   // Use product image from the original chat data if available
   const productImage = contact._originalChat?.product?.image_url;
+  const navigate = useNavigate();
+  
+  const handleProductClick = (e) => {
+    e.stopPropagation();
+    if (contact._originalChat?.product?.id) {
+      navigate(`/product/${contact._originalChat.product.id}`);
+    }
+  };
   
   return (
     <div
@@ -53,12 +62,14 @@ const ContactItem = ({ contact, isActive, onClick }) => {
               {contact.unreadCount}
             </span>
           )}
-        </div>
-        {/* Show product title if available */}
+        </div>        {/* Show product title if available */}
         {contact._originalChat?.product?.title && (
-          <p className="text-xs text-blue-600 truncate mt-1">
+          <button 
+            onClick={handleProductClick}
+            className="text-xs text-blue-600 truncate mt-1 hover:text-blue-800 hover:underline text-left"
+          >
             {contact._originalChat.product.title}
-          </p>
+          </button>
         )}
       </div>
     </div>

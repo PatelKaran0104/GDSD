@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Smile, Send } from 'lucide-react';
+import { Send } from 'lucide-react';
 
 const MessageInput = ({ onSendMessage }) => {
   const [message, setMessage] = useState('');
@@ -21,7 +21,7 @@ const MessageInput = ({ onSendMessage }) => {
   return (
     <div className="px-4 py-3 border-t border-gray-200 bg-white">
       <div className="flex items-end gap-2">
-        <div className="flex-1 relative">
+        <div className="flex-1">
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -33,9 +33,6 @@ const MessageInput = ({ onSendMessage }) => {
             rows={1}
             style={{ minHeight: '44px', maxHeight: '120px' }}
           />
-          <button className="absolute right-3 bottom-3 p-1 rounded-full hover:bg-gray-200 text-gray-500">
-            <Smile size={20} />
-          </button>
         </div>
         <button 
           onClick={handleSend}

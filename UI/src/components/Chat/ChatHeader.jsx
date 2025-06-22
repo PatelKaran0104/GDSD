@@ -1,10 +1,12 @@
 import { MoreVertical, Flag, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useContacts } from '../../context/ContactContext';
+import { useNavigate } from 'react-router-dom';
 
 const ChatHeader = ({ contact }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { contacts } = useContacts();
+  const navigate = useNavigate();
   
   // Get the full contact data including original chat info
   const fullContact = contacts.find(c => c.id === contact.id);
@@ -20,6 +22,12 @@ const ChatHeader = ({ contact }) => {
   const handleDeleteChat = () => {
     console.log('Delete chat:', contact.id);
     setIsMenuOpen(false);
+  };
+
+  const handleProductClick = () => {
+    if (originalChat?.product?.id) {
+      navigate(`/product/${originalChat.product.id}`);
+    }
   };
 
   return (
@@ -46,11 +54,15 @@ const ChatHeader = ({ contact }) => {
             </div>
           )}
         </div>
-        
-        <div className="ml-3">
+          <div className="ml-3">
           <h2 className="font-medium text-gray-900">{contact.name}</h2>
           {productTitle && (
-            <p className="text-sm text-blue-600">{productTitle}</p>
+            <button 
+              onClick={handleProductClick}
+              className="text-sm text-blue-600 hover:text-blue-800 hover:underline text-left"
+            >
+              {productTitle}
+            </button>
           )}
         </div>
       </div>
