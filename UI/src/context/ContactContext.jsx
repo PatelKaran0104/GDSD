@@ -27,8 +27,9 @@ const transformChatToContact = (chat, currentUserId) => {
 
 // Transform backend message data to match our UI structure
 const transformMessage = (message, currentUserId) => {
+  console.log('Transforming message:', message);
   return {
-    id: message.message_id.toString(),
+    id: message.message_id?.toString(),
     sender: message.sender_id === currentUserId ? 'me' : message.sender_id.toString(),
     content: message.content,
     timestamp: new Date(message.created_at),
