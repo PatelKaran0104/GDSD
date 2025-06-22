@@ -62,7 +62,7 @@ const AdminDashboard = () => {
         headers: { "Content-Type": "application/json" },
       });
       fetchProducts({
-        url: `https://ezrsqqp4hh.eu-central-1.awsapprunner.com/api/products/search`,
+        url: `https://swoplet.onrender.com/api/products/search`,
         method: "POST",
         body: { status: 0 },
         headers: { "Content-Type": "application/json" },
@@ -80,7 +80,7 @@ const AdminDashboard = () => {
         headers: { "Content-Type": "application/json" },
       });
       fetchProducts({
-        url: `https://ezrsqqp4hh.eu-central-1.awsapprunner.com/api/products/search`,
+        url: `https://swoplet.onrender.com/api/products/search`,
         method: "POST",
         body: { status: 0 },
         headers: { "Content-Type": "application/json" },
